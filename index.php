@@ -4,7 +4,8 @@ session_start();
  * @var $this Grid
  */
 require 'Grid.php';
-$Grid = new Grid('data/small.in');
+
+$Grid = new Grid('data/example.in', 'data/example.out');
 $_SESSION ['grid'] = serialize($Grid);
 ?>
 <!DOCTYPE html>
@@ -27,16 +28,73 @@ $_SESSION ['grid'] = serialize($Grid);
     
 </head>
 <body>
-
-<table cellpadding="2" cellspacing="2" border="0" id="grid">
-    <?php for ($i = 0, $cntI = $Grid->R; $i < $cntI; $i++ ): ?>
-        <tr>
-            <?php for ($j = 0, $cntJ = $Grid->C; $j < $cntJ; $j++ ): ?>
-                <td id="<?= 'cell_' . $i . '_' . $j ?>"><?= empty($Grid->dataAr [$i] [$j]) ? '<i class="em em-tomato"></i>' : '<i class="em em-mushroom"></i>'; ?></td>
+<div id="container">
+    <div style="width:20%; float: left">
+        <table cellpadding="2" cellspacing="2" border="0" id="grid">
+            <?php for ($i = 0, $cntI = $Grid->R; $i < $cntI; $i++ ): ?>
+                <tr>
+                    <?php for ($j = 0, $cntJ = $Grid->C; $j < $cntJ; $j++ ): ?>
+                        <td id="<?= 'cell_' . $i . '_' . $j ?>"><?= empty($Grid->dataAr [$i] [$j]) ? '<i class="em em-tomato"></i>' : '<i class="em em-mushroom"></i>'; ?></td>
+                    <?php endfor; ?>
+                </tr>
             <?php endfor; ?>
-        </tr>
-    <?php endfor; ?>
-</table>
+        </table>
+    </div>
+    <div style="width: 30%; float: left">
+        <table cellpadding="2" cellspacing="2" border="0" id="stat">
+            <tr>
+                <td>
+                    Mushrooms rest: <span id="mushrooms_cnt"></span>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    Tomatoes rest: <span id="tomatoes_cnt"></span>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    TOTAL rest: <span id="rest_cnt"></span>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    Rollbacks count: <span id="rollbacks_cnt"></span>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    Total steps: <span id="steps_cnt"></span>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    Current slice: <span id="current_slice"></span>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    Current path: <span id="current_path"></span>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <div style="width: 40%;float: left">
+        <table cellpadding="2" cellspacing="2" border="3" id="stat">
+            <?php foreach ( $Grid->availSlices as $idx => $availSlice ): ?>
+            <tr>
+                <td>
+                    Index: <?= $idx ?>
+                </td>
+                <td>
+                    Slice: <?= $availSlice [0] . ' x ' . $availSlice [1] ?>
+                </td>
+            </tr>
+            <?php endforeach; ?>
+        </table>
+    </div>
+</div>
 
 <script type="text/javascript">
     var a = 0;
@@ -71,6 +129,14 @@ $_SESSION ['grid'] = serialize($Grid);
                                 }
                             }
                         }
+
+                        $('#mushrooms_cnt').text(data.rest.mushrooms);
+                        $('#tomatoes_cnt').text(data.rest.tomatoes);
+                        $('#rest_cnt').text(data.rest.total);
+                        $('#rollbacks_cnt').text(data.rollbacks_cnt);
+                        $('#current_slice').text(data.current_slice);
+                        $('#steps_cnt').text(data.steps_cnt);
+                        $('#current_path').text(data.path);
                     }
                 }
             });
@@ -80,4 +146,3 @@ $_SESSION ['grid'] = serialize($Grid);
 
 </body>
 </html>
-    

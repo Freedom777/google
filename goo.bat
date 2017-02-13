@@ -1,0 +1,1 @@
+E:\OpenServer\modules\php\PHP-7.1-x64\php.exe console.php
