@@ -32,7 +32,7 @@ class Grid {
     ];
     public $availSlices = [];
     public $availSliceCombinations = [];
-    public $lenAvailSlices = [];
+    public $lenAvailSlices = 0;
     public $completeFlag = false;
     public $failedFlag = false;
     public $keepTrying = false;
@@ -50,11 +50,10 @@ class Grid {
     public function __construct($filename, $outFilename)
     {
         $this->readFile($filename);
-        die('aaa');
+        // var_dump($filename); die();
         $this->availSliceCombinations = $this->getMultipliers($this->L, $this->H);
         $this->lenAvailSlices = sizeof($this->availSliceCombinations);
         $this->analyze();
-
 
         if ( !empty($outFilename) ) {
             $this->outputFile = $outFilename;
@@ -64,14 +63,14 @@ class Grid {
     private function readFile($filename) {
         $fileAr = file($filename);
         list($this->R, $this->C, $this->L, $this->H) = explode(' ', $fileAr [0]);
-        $this->H = trim($this->H); // Remove line ending
+        $this->H = (int) $this->H; // Remove line ending
         $dataAr = [];
 
-        for ( $i = 1, $cntI = $this->R ; $i <= $cntI; $i++ ) { // Bypass header
-            $this->fillAr [$i - 1] = array_fill(0, $this->C, 0);
-            for ( $j = 0, $cntJ = $this->C; $j < $cntJ; $j++ ) {
+        for ( $y = 0, $cntY = $this->R ; $y < $cntY; $y++ ) { // Bypass header
+            $this->fillAr [$y] = array_fill(0, $this->C, 0);
+            for ( $x = 0, $cntX = $this->C; $x < $cntX; $x++ ) {
                 $flagMushroom = 0;
-                switch ( $fileAr [$i] [$j] ) {
+                switch ( $fileAr [$y + 1] [$x] ) {
                     case self::CELL_MUSHROOM:
                         ++$this->total [self::CELL_MUSHROOM];
                         $flagMushroom = 1;
@@ -81,7 +80,7 @@ class Grid {
                         ++$this->total [self::CELL_TOMATO];
                         break;
                 }
-                $dataAr [($i - 1)] [$j] = $flagMushroom;
+                $dataAr [$y] [$x] = $flagMushroom;
             }
         }
 
@@ -93,17 +92,21 @@ class Grid {
     }
 
     private function analyze() {
-        for ( $i = 0, $cntI = $this->R ; $i < $cntI; $i++ ) {
-            for ( $j = 0, $cntJ = $this->C; $j < $cntJ; $j++ ) {
-                for ( $k = 0, $cntK = $this->availSliceCombinations; $k < $cntK; $k++ ) {
+        for ( $y = 0, $cntY = $this->R ; $y < $cntY; $y++ ) { // y
+            for ( $x = 0, $cntX = $this->C; $x < $cntX; $x++ ) { // x
+                for ( $k = 0, $cntK = sizeof($this->availSliceCombinations); $k < $cntK; $k++ ) {
                     $curCombination = $this->availSliceCombinations [$k];
-                    if ( $this->isCellSliceValid([$j, $i, $j + $curCombination [0] - 1, $i + $curCombination [1] - 1]) ) {
-                        $this->availSlices [$this->convertRelAbs($i, $j)] [] = $k;
+                    // Check for combination and X length
+                    if ( $curCombination [1] > $this->R || $curCombination [0] > $this->C ) {
+                        continue;
+                    }
+
+                    if ( $this->isCellSliceValid([$y, $x, $y + $curCombination [1] - 1, $x + $curCombination [0] - 1]) ) {
+                        $this->availSlices [$this->convertRelAbs($y, $x)] [] = $k;
                     }
                 }
             }
         }
-        die('222');
     }
 
     private function isCellSliceValid( $coord = [] ) {
@@ -116,8 +119,8 @@ class Grid {
         $cntMushrooms = 0;
         $xLen = $x2 - $x1 + 1;
         $totalRecs = ($y2 - $y1 + 1) * $xLen;
-        for ( $i = $y1; $i <= $y2; $i++ ) {
-            $cntMushrooms += array_sum(array_slice($this->dataAr [$i], $x1, $xLen));
+        for ( $y = $y1; $y <= $y2; $y++ ) {
+            $cntMushrooms += array_sum(array_slice($this->dataAr [$y], $x1, $xLen));
         }
 
         // Test for minimum set of ingredients L
@@ -147,11 +150,6 @@ class Grid {
         return 0;
     }
 
-    public function display() {
-        require 'tpl/header.php';
-        require 'tpl/main.php';
-    }
-
     public function getSlice($coord = [], $remove = false) {
         list($y1, $x1, $y2, $x2) = $coord;
 
@@ -165,14 +163,14 @@ class Grid {
         // Clear filled cells
         if ( !empty($remove) ) {
 
-            for ($i = $y1; $i <= $y2; $i++) {
-                for ($j = $x1; $j <= $x2; $j++) {
-                    if ( empty($this->fillAr [$i] [$j]) ) {
+            for ($y = $y1; $y <= $y2; $y++) {
+                for ($x = $x1; $x <= $x2; $x++) {
+                    if ( empty($this->fillAr [$y] [$x]) ) {
                         return false;
                     }
-                    $resultAr [$yr] [$xr++] = $this->dataAr [$i] [$j];
-                    $cntMushrooms += $this->dataAr [$i] [$j];
-                    $this->fillAr [$i] [$j] = 0;
+                    $resultAr [$yr] [$xr++] = $this->dataAr [$y] [$x];
+                    $cntMushrooms += $this->dataAr [$y] [$x];
+                    $this->fillAr [$y] [$x] = 0;
                     ++$totalRecs;
                 }
                 $xr = 0;
@@ -186,16 +184,16 @@ class Grid {
             $this->rest ['total'] += $totalRecs;
         } else {
             // Put slice cells
-            for ($i = $y1; $i <= $y2; $i++) {
-                for ($j = $x1; $j <= $x2; $j++) {
+            for ($y = $y1; $y <= $y2; $y++) {
+                for ($x = $x1; $x <= $x2; $x++) {
                     // Check for filling already filled cells
-                    if ( !empty($this->fillAr [$i] [$j]) ) {
+                    if ( !empty($this->fillAr [$y] [$x]) ) {
                         return false;
                     }
 
-                    // $this->fillAr [$i] [$j] = !empty($remove) ? 0 : 1;
-                    $resultAr [$yr] [$xr++] = $this->dataAr [$i] [$j];
-                    $cntMushrooms += $this->dataAr [$i] [$j];
+                    // $this->fillAr [$y] [$x] = !empty($remove) ? 0 : 1;
+                    $resultAr [$yr] [$xr++] = $this->dataAr [$y] [$x];
+                    $cntMushrooms += $this->dataAr [$y] [$x];
                     ++$totalRecs;
                 }
                 $xr = 0;
@@ -205,9 +203,9 @@ class Grid {
             $cntTomatoes = $totalRecs - $cntMushrooms;
 
             // Fill matrix, if success with all conditions
-            for ($i = $y1; $i <= $y2; $i++) {
-                for ($j = $x1; $j <= $x2; $j++) {
-                    $this->fillAr [$i] [$j] = 1;
+            for ($y = $y1; $y <= $y2; $y++) {
+                for ($x = $x1; $x <= $x2; $x++) {
+                    $this->fillAr [$y] [$x] = 1;
                 }
             }
 
@@ -222,24 +220,24 @@ class Grid {
     public function getMultipliers($minValue, $maxValue) {
         $resultAr = [];
         // *2, because each of ingredients should exist
-        for ( $i = $minValue*2; $i <= $maxValue; $i++ ) {
-            for ( $j = 1, $cnt = $i >> 1; $j <= $cnt; $j++ ) {
-                if (empty($i % $j)) {
-                    $resultAr [] = [$j, $i / $j];
+        for ( $y = $maxValue; $y >= $minValue*2; $y-- ) {
+            for ( $x = 1, $cnt = $y >> 1; $x <= $cnt; $x++ ) {
+                if (empty($y % $x)) {
+                    $resultAr [] = [$x, $y / $x];
                 }
             }
-            $resultAr [] = [$i, 1];
+            $resultAr [] = [$y, 1];
         }
 
         return $resultAr;
     }
 
     private function getFirstEmptySpace() {
-        for ( $i = 0, $cntI = $this->R; $i < $cntI; $i++ ) {
-            if ( array_sum($this->fillAr [$i]) < $this->C ) {
-                for ( $j = 0, $cntJ = $this->C; $j < $cntJ; $j++ ) {
-                    if ( empty($this->fillAr [$i] [$j]) ) {
-                        return [$i, $j];
+        for ( $y = 0, $cntY = $this->R; $y < $cntY; $y++ ) {
+            if ( array_sum($this->fillAr [$y]) < $this->C ) {
+                for ( $x = 0, $cntX = $this->C; $x < $cntX; $x++ ) {
+                    if ( empty($this->fillAr [$y] [$x]) ) {
+                        return [$x, $y];
                     }
                 }
             }
@@ -249,32 +247,32 @@ class Grid {
     }
 
     public function step(){
-        die('aaa');
         if ( !$pos = $this->getFirstEmptySpace() ) {
             $this->completeFlag = true;
             return true;
         } else {
             ++$this->totalSteps;
-            $i = $pos [0];
-            $j = $pos [1];
-            $absIdx = $this->convertRelAbs($i, $j);
+            $y = $pos [0];
+            $x = $pos [1];
+            $absIdx = $this->convertRelAbs($y, $x);
             $combFound = false;
 
             if ( !isset($this->pathCombinationsAr [$absIdx]) ) {
                 // First available combination for cell
                 // reset($this->availSlices [$absIdx]);
-                $this->currentSliceIdx = key($this->availSlices [$absIdx]);
+                $this->currentSliceIdx = 0; //key($this->availSlices [$absIdx]);
             }
 
             // if ( sizeof($this->pathCombinationsAr [$absIdx]) <= sizeof($this->availSlices) ) { // All available combinations tried
             // if ( $this->currentSliceIdx < $this->lenAvailSlices ) {
-            if ( ($availSlice = current($this->availSlices [$absIdx])) !== false ) {
+            // if ( ($availSlice = current($this->availSlices [$absIdx])) !== false ) {
+            if ( isset($this->availSlices [$absIdx] [$this->currentSliceIdx]) ) {
                 $this->keepTrying = true;
-                // $availSlice = $this->availSlices [$this->currentSliceIdx];
-                $this->pathCombinationsAr [$absIdx] = $this->currentSliceIdx;
-                next($this->availSlices [$absIdx]);
+                $availSlice = $this->availSlices [$this->currentSliceIdx];
+                $this->pathCombinationsAr [$absIdx] = $this->currentSliceIdx++;
+                // next($this->availSlices [$absIdx]);
 
-                $coordAr = [$i, $j, $i + $availSlice [0] - 1, $j + $availSlice [1] - 1];
+                $coordAr = [$x, $y, $x + $availSlice [1] - 1, $y + $availSlice [0] - 1];
                 $tmpAr = $this->getSlice($coordAr);
                 $this->currentCombination = $coordAr;
                 if ( is_array($tmpAr) ) {
@@ -307,45 +305,45 @@ class Grid {
         $absIdx = key($this->pathCombinationsAr);
         $lastCombIdx = array_pop($this->pathCombinationsAr);
         $lastSlice = $this->availSlices [$lastCombIdx];
-        list($j, $i) = $this->convertAbsRel($absIdx);
-        $tmpAr = $this->getSlice([$i, $j, $i + $lastSlice [0] - 1, $j + $lastSlice [1] - 1], true);
+        list($x, $y) = $this->convertAbsRel($absIdx);
+        $tmpAr = $this->getSlice([$y, $x, $y + $lastSlice [0] - 1, $x + $lastSlice [1] - 1], true);
         if ($this->keepTrying == false) {
             end($this->pathCombinationsAr);
             $absIdx = key($this->pathCombinationsAr);
-            list($j, $i) = $this->convertAbsRel($absIdx);
+            list($x, $y) = $this->convertAbsRel($absIdx);
             $lastCombIdx = $this->pathCombinationsAr [$absIdx];
             $lastSlice = $this->availSlices [$lastCombIdx];
             // $lastCombIdx = array_pop($lastSliceCombinationsAr);
             // $lastSlice = $this->availSlices [$lastCombIdx];
 
-            $tmpAr = $this->getSlice([$i, $j, $i + $lastSlice [0] - 1, $j + $lastSlice [1] - 1], true);
+            $tmpAr = $this->getSlice([$y, $x, $y + $lastSlice [0] - 1, $x + $lastSlice [1] - 1], true);
             // Forward to next combination
             $this->currentSliceIdx = $lastCombIdx + 1;
         }
     }
 
     public function convertAbsRel($absVal) {
-        $i = $absVal % $this->C;
-        $j = (int) ($absVal / $this->C);
+        $y = $absVal % $this->C;
+        $x = (int) ($absVal / $this->C);
 
-        return [$i, $j];
+        return [$y, $x];
     }
 
-    public function convertRelAbs($i, $j) {
-        return $i*$this->C + $j;
+    public function convertRelAbs($y, $x) {
+        return $y*$this->C + $x;
     }
 
     public function output() {
         $resultAr = [];
 
-        for ( $i = 0, $cntI = $this->R; $i < $cntI; $i++ ) {
-            for ( $j = 0, $cntJ = $this->C; $j < $cntJ; $j++ ) {
-                $resultAr [$i] [$j] = 0;
-                if ( !empty($this->fillAr [$i] [$j]) ) { // Filled cell
-                    $resultAr [$i] [$j] = 1;
+        for ( $y = 0, $cntY = $this->R; $y < $cntY; $y++ ) {
+            for ( $x = 0, $cntX = $this->C; $x < $cntX; $x++ ) {
+                $resultAr [$y] [$x] = 0;
+                if ( !empty($this->fillAr [$y] [$x]) ) { // Filled cell
+                    $resultAr [$y] [$x] = 1;
                 // Check for current combination
-                } else if ( $i >= $this->currentCombination [0] && $i <= $this->currentCombination [2] && $j >= $this->currentCombination [1] && $j <= $this->currentCombination [3] ) {
-                    $resultAr [$i] [$j] = 2;
+                } else if ( $y >= $this->currentCombination [0] && $y <= $this->currentCombination [2] && $x >= $this->currentCombination [1] && $x <= $this->currentCombination [3] ) {
+                    $resultAr [$y] [$x] = 2;
                 }
             }
         }
