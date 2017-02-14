@@ -17,8 +17,6 @@ class Grid {
     public $L = false;
     public $H = false;
 
-
-
     public $dataAr = [];
     public $fillAr = [];
     public $total = [
@@ -33,14 +31,15 @@ class Grid {
     public $availSlices = [];
     public $availSliceCombinations = [];
     public $lenAvailSlices = 0;
+
     public $completeFlag = false;
     public $failedFlag = false;
     public $keepTrying = false;
 
-    public $curAbsIndex = 0;
     public $pathCombinationsAr = [];
     private $currentCombination = [];
     public $currentSliceIdx = null;
+    public $currentCellCombIdx = false;
     private $outputFile = 'data/result.out';
     public $totalSteps = 0;
 
@@ -50,7 +49,6 @@ class Grid {
     public function __construct($filename, $outFilename)
     {
         $this->readFile($filename);
-        // var_dump($filename); die();
         $this->availSliceCombinations = $this->getMultipliers($this->L, $this->H);
         $this->lenAvailSlices = sizeof($this->availSliceCombinations);
         $this->analyze();
@@ -62,15 +60,14 @@ class Grid {
 
     private function readFile($filename) {
         $fileAr = file($filename);
-        list($this->R, $this->C, $this->L, $this->H) = explode(' ', $fileAr [0]);
-        $this->H = (int) $this->H; // Remove line ending
+        list($this->R, $this->C, $this->L, $this->H) = array_map('intval', explode(' ', $fileAr [0]));
         $dataAr = [];
 
         for ( $y = 0, $cntY = $this->R ; $y < $cntY; $y++ ) { // Bypass header
             $this->fillAr [$y] = array_fill(0, $this->C, 0);
             for ( $x = 0, $cntX = $this->C; $x < $cntX; $x++ ) {
                 $flagMushroom = 0;
-                switch ( $fileAr [$y + 1] [$x] ) {
+                switch ( trim($fileAr [$y + 1] [$x]) ) {
                     case self::CELL_MUSHROOM:
                         ++$this->total [self::CELL_MUSHROOM];
                         $flagMushroom = 1;
@@ -252,32 +249,28 @@ class Grid {
             return true;
         } else {
             ++$this->totalSteps;
-            $y = $pos [0];
-            $x = $pos [1];
+            list ($x, $y) = $pos;
             $absIdx = $this->convertRelAbs($y, $x);
             $combFound = false;
 
             if ( !isset($this->pathCombinationsAr [$absIdx]) ) {
                 // First available combination for cell
-                // reset($this->availSlices [$absIdx]);
-                $this->currentSliceIdx = 0; //key($this->availSlices [$absIdx]);
+                $this->currentSliceIdx = 0;
             }
 
-            // if ( sizeof($this->pathCombinationsAr [$absIdx]) <= sizeof($this->availSlices) ) { // All available combinations tried
-            // if ( $this->currentSliceIdx < $this->lenAvailSlices ) {
-            // if ( ($availSlice = current($this->availSlices [$absIdx])) !== false ) {
-            if ( isset($this->availSlices [$absIdx] [$this->currentSliceIdx]) ) {
+            $this->currentCellCombIdx = isset($this->availSlices [$absIdx] [$this->currentSliceIdx]) ? $this->availSlices [$absIdx] [$this->currentSliceIdx] : false;
+
+            if ( false !== $this->currentCellCombIdx ) {
                 $this->keepTrying = true;
-                $availSlice = $this->availSlices [$this->currentSliceIdx];
+                $availSlice = $this->availSliceCombinations [$this->currentCellCombIdx];
                 $this->pathCombinationsAr [$absIdx] = $this->currentSliceIdx++;
                 // next($this->availSlices [$absIdx]);
 
-                $coordAr = [$x, $y, $x + $availSlice [1] - 1, $y + $availSlice [0] - 1];
-                $tmpAr = $this->getSlice($coordAr);
-                $this->currentCombination = $coordAr;
+                $this->currentCombination = [$y, $x, $y + $availSlice [1] - 1, $x + $availSlice [0] - 1];
+                $tmpAr = $this->getSlice($this->currentCombination);
                 if ( is_array($tmpAr) ) {
                     if ( ($this->rest [self::CELL_MUSHROOM] < $this->L || $this->rest [self::CELL_TOMATO] < $this->L) && !empty($this->rest ['total']) ) {
-                        $tmpAr = $this->getSlice($coordAr, true);
+                        $tmpAr = $this->getSlice($this->currentCombination, true);
                         return false;
                     }
                     return true;
@@ -301,22 +294,22 @@ class Grid {
     public function rollback () {
         ++$this->rollbacksCnt;
         // Clear current
+        $this->rewindLastSlice();
+        if ($this->keepTrying == false) {
+            $this->rewindLastSlice(true);
+        }
+    }
+
+    private function rewindLastSlice($incCurSliceIndex = false) {
         end($this->pathCombinationsAr);
         $absIdx = key($this->pathCombinationsAr);
         $lastCombIdx = array_pop($this->pathCombinationsAr);
-        $lastSlice = $this->availSlices [$lastCombIdx];
+        $cellCombIdx = $this->availSlices [$absIdx] [$lastCombIdx];
+        $lastSlice = $this->availSliceCombinations [$cellCombIdx];
         list($x, $y) = $this->convertAbsRel($absIdx);
-        $tmpAr = $this->getSlice([$y, $x, $y + $lastSlice [0] - 1, $x + $lastSlice [1] - 1], true);
-        if ($this->keepTrying == false) {
-            end($this->pathCombinationsAr);
-            $absIdx = key($this->pathCombinationsAr);
-            list($x, $y) = $this->convertAbsRel($absIdx);
-            $lastCombIdx = $this->pathCombinationsAr [$absIdx];
-            $lastSlice = $this->availSlices [$lastCombIdx];
-            // $lastCombIdx = array_pop($lastSliceCombinationsAr);
-            // $lastSlice = $this->availSlices [$lastCombIdx];
+        $tmpAr = $this->getSlice([$y, $x, $y + $lastSlice [1] - 1, $x + $lastSlice [0] - 1], true);
 
-            $tmpAr = $this->getSlice([$y, $x, $y + $lastSlice [0] - 1, $x + $lastSlice [1] - 1], true);
+        if ($incCurSliceIndex) {
             // Forward to next combination
             $this->currentSliceIdx = $lastCombIdx + 1;
         }

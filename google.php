@@ -29,7 +29,7 @@ if ( $Grid->completeFlag || $Grid->failedFlag ) {
         'total' => $Grid->rest ['total'],
     ];
     $resultAr ['rollbacks_cnt'] = $Grid->rollbacksCnt;
-    $currentSlice = $Grid->availSlices [$Grid->currentSliceIdx];
+    $currentSlice = $Grid->availSliceCombinations [$Grid->currentCellCombIdx];
     $resultAr ['current_slice'] = $currentSlice [0] . ' x ' . $currentSlice [1];
     $resultAr ['steps_cnt'] = $Grid->totalSteps;
     $resultAr ['path'] = implode(', ', array_keys($Grid->pathCombinationsAr));

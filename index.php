@@ -5,7 +5,7 @@ session_start();
  */
 require 'Grid.php';
 
-$Grid = new Grid('data/example.in', 'data/example.out');
+$Grid = new Grid('data/small.in', 'data/small.out');
 $_SESSION ['grid'] = serialize($Grid);
 ?>
 <!DOCTYPE html>
@@ -31,10 +31,10 @@ $_SESSION ['grid'] = serialize($Grid);
 <div id="container">
     <div style="width:20%; float: left">
         <table cellpadding="2" cellspacing="2" border="0" id="grid">
-            <?php for ($i = 0, $cntI = $Grid->R; $i < $cntI; $i++ ): ?>
+            <?php for ($y = 0, $cntY = $Grid->R; $y < $cntY; $y++ ): ?>
                 <tr>
-                    <?php for ($j = 0, $cntJ = $Grid->C; $j < $cntJ; $j++ ): ?>
-                        <td id="<?= 'cell_' . $i . '_' . $j ?>"><?= empty($Grid->dataAr [$i] [$j]) ? '<i class="em em-tomato"></i>' : '<i class="em em-mushroom"></i>'; ?></td>
+                    <?php for ($x = 0, $cntJ = $Grid->C; $x < $cntJ; $x++ ): ?>
+                        <td id="<?= 'cell_' . $y . '_' . $x ?>"><?= empty($Grid->dataAr [$y] [$x]) ? '<i class="em em-tomato"></i>' : '<i class="em em-mushroom"></i>'; ?></td>
                     <?php endfor; ?>
                 </tr>
             <?php endfor; ?>
@@ -82,13 +82,13 @@ $_SESSION ['grid'] = serialize($Grid);
 
     <div style="width: 40%;float: left">
         <table cellpadding="2" cellspacing="2" border="3" id="stat">
-            <?php foreach ( $Grid->availSlices as $idx => $availSlice ): ?>
+            <?php foreach ( $Grid->availSliceCombinations as $idx => $availSliceCombination ): ?>
             <tr>
                 <td>
                     Index: <?= $idx ?>
                 </td>
                 <td>
-                    Slice: <?= $availSlice [0] . ' x ' . $availSlice [1] ?>
+                    Slice: <?= $availSliceCombination [0] . ' x ' . $availSliceCombination [1] ?>
                 </td>
             </tr>
             <?php endforeach; ?>
@@ -140,7 +140,7 @@ $_SESSION ['grid'] = serialize($Grid);
                     }
                 }
             });
-        }, 100);
+        }, 5000);
     });
 </script>
 
