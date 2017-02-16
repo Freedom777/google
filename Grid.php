@@ -34,7 +34,7 @@ class Grid {
 
     public $completeFlag = false;
     public $failedFlag = false;
-    public $keepTrying = false;
+    public $rollbackFlag = false;
 
     public $pathCombinationsAr = [];
     private $currentCombination = [];
@@ -42,6 +42,7 @@ class Grid {
     public $currentCellCombIdx = false;
     private $outputFile = 'data/result.out';
     public $totalSteps = 0;
+    private $currentAbsIdx = 0;
 
 
     public $rollbacksCnt = 0;
@@ -133,8 +134,9 @@ class Grid {
     public function saveFile() {
         $resultAr = [
             'completed' => $this->completeFlag,
-            'availSlices' => $this->availSlices,
+            'availSliceCombinations' => $this->availSliceCombinations,
             'pathCombinationsAr' => $this->pathCombinationsAr,
+            'availSlices' => $this->availSlices,
         ];
         file_put_contents($this->outputFile, 'return ' . var_export($resultAr, true) .';');
     }
@@ -253,34 +255,41 @@ class Grid {
             $absIdx = $this->convertRelAbs($y, $x);
             $combFound = false;
 
-            if ( !isset($this->pathCombinationsAr [$absIdx]) ) {
-                // First available combination for cell
-                $this->currentSliceIdx = 0;
+            // First available combination for cell
+            $this->currentSliceIdx = 0;
+            if ( isset($this->pathCombinationsAr [$absIdx]) ) {
+                $this->currentSliceIdx = ++$this->pathCombinationsAr [$absIdx];
+            } else {
+                $this->pathCombinationsAr [$absIdx] = 0;
             }
 
-            $this->currentCellCombIdx = isset($this->availSlices [$absIdx] [$this->currentSliceIdx]) ? $this->availSlices [$absIdx] [$this->currentSliceIdx] : false;
-
-            if ( false !== $this->currentCellCombIdx ) {
-                $this->keepTrying = true;
-                $availSlice = $this->availSliceCombinations [$this->currentCellCombIdx];
-                $this->pathCombinationsAr [$absIdx] = $this->currentSliceIdx++;
-                // next($this->availSlices [$absIdx]);
-
-                $this->currentCombination = [$y, $x, $y + $availSlice [1] - 1, $x + $availSlice [0] - 1];
-                $tmpAr = $this->getSlice($this->currentCombination);
-                if ( is_array($tmpAr) ) {
-                    if ( ($this->rest [self::CELL_MUSHROOM] < $this->L || $this->rest [self::CELL_TOMATO] < $this->L) && !empty($this->rest ['total']) ) {
-                        $tmpAr = $this->getSlice($this->currentCombination, true);
-                        return false;
-                    }
-                    return true;
-                }
-
-            } elseif ( empty($absIdx) ) { // First cell reached with all combinations already taken
-                $combFound = true;
-                $this->failedFlag = true;
+            $this->currentCellCombIdx = false;
+            if ( !isset($this->availSlices [$absIdx]) ) {
+                $this->rollbackFlag = true;
             } else {
-                $this->keepTrying = false;
+                $this->currentCellCombIdx = isset($this->availSlices [$absIdx] [$this->currentSliceIdx]) ? $this->availSlices [$absIdx] [$this->currentSliceIdx] : false;
+
+                if ( false !== $this->currentCellCombIdx ) {
+                    $this->rollbackFlag = false;
+                    $availSlice = $this->availSliceCombinations [$this->currentCellCombIdx];
+                    // $this->pathCombinationsAr [$absIdx] = $this->currentSliceIdx;
+                    // next($this->availSlices [$absIdx]);
+
+                    $this->currentCombination = [$y, $x, $y + $availSlice [1] - 1, $x + $availSlice [0] - 1];
+                    $tmpAr = $this->getSlice($this->currentCombination);
+                    if ( is_array($tmpAr) ) {
+                        if ( ($this->rest [self::CELL_MUSHROOM] < $this->L || $this->rest [self::CELL_TOMATO] < $this->L) && !empty($this->rest ['total']) ) {
+                            $tmpAr = $this->getSlice($this->currentCombination, true);
+                            return false;
+                        }
+                        return true;
+                    }
+                } elseif ( empty($absIdx) ) { // First cell reached with all combinations already taken
+                    $combFound = true;
+                    $this->failedFlag = true;
+                } else {
+                    $this->rollbackFlag = true;
+                }
             }
 
             return $combFound;
@@ -294,24 +303,20 @@ class Grid {
     public function rollback () {
         ++$this->rollbacksCnt;
         // Clear current
-        $this->rewindLastSlice();
-        if ($this->keepTrying == false) {
-            $this->rewindLastSlice(true);
-        }
-    }
-
-    private function rewindLastSlice($incCurSliceIndex = false) {
         end($this->pathCombinationsAr);
-        $absIdx = key($this->pathCombinationsAr);
-        $lastCombIdx = array_pop($this->pathCombinationsAr);
+        list($absIdx, $lastCombIdx) = each($this->pathCombinationsAr);
+        if ( empty($this->availSlices [$absIdx]) || empty($this->availSlices [$absIdx] [$lastCombIdx]) ) { // No combination for this cell
+            array_pop($this->pathCombinationsAr);
+            end($this->pathCombinationsAr);
+            list($absIdx, $lastCombIdx) = each($this->pathCombinationsAr);
+        }
+
         $cellCombIdx = $this->availSlices [$absIdx] [$lastCombIdx];
         $lastSlice = $this->availSliceCombinations [$cellCombIdx];
         list($x, $y) = $this->convertAbsRel($absIdx);
         $tmpAr = $this->getSlice([$y, $x, $y + $lastSlice [1] - 1, $x + $lastSlice [0] - 1], true);
-
-        if ($incCurSliceIndex) {
-            // Forward to next combination
-            $this->currentSliceIdx = $lastCombIdx + 1;
+        if ( $lastCombIdx >= sizeof($this->availSlices [$absIdx]) ) { // All variants searched
+            unset($this->pathCombinationsAr [$absIdx]);
         }
     }
 

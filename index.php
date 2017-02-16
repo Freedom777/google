@@ -140,7 +140,7 @@ $_SESSION ['grid'] = serialize($Grid);
                     }
                 }
             });
-        }, 5000);
+        }, 100);
     });
 </script>
 

@@ -4,12 +4,13 @@ session_start();
 require 'Grid.php';
 
 if ( empty($_SESSION ['grid']) ) {
-    $Grid = new Grid('data/example.in');
+    die('No grid found.');
+    // $Grid = new Grid('data/example.in');
 } else {
     $Grid = unserialize($_SESSION ['grid']);
 }
 
-while ( !$Grid->step() && !$Grid->keepTrying ) {
+while ( !$Grid->step() && $Grid->rollbackFlag ) {
     $Grid->rollback();
 }
 $_SESSION ['grid'] = serialize($Grid);
