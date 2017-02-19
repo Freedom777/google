@@ -5,7 +5,7 @@ session_start();
  */
 require 'Grid.php';
 
-$Grid = new Grid('data/small.in', 'data/small.out');
+$Grid = new Grid('small');
 $_SESSION ['grid'] = serialize($Grid);
 ?>
 <!DOCTYPE html>

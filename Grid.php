@@ -11,6 +11,12 @@ class Grid {
 
     const CELL_MUSHROOM = 'M';
     const CELL_TOMATO = 'T';
+    const EXT_IN = 'in';
+    const EXT_OUT = 'out';
+    const EXT_TMP = 'tmp';
+    const DATA_DIR = 'data';
+
+    const BATCH_MOVES_SAVE = 100000;
 
     public $R = false;
     public $C = false;
@@ -30,7 +36,6 @@ class Grid {
     ];
     public $availSlices = [];
     public $availSliceCombinations = [];
-    public $lenAvailSlices = 0;
 
     public $completeFlag = false;
     public $failedFlag = false;
@@ -40,22 +45,54 @@ class Grid {
     private $currentCombination = [];
     public $currentSliceIdx = null;
     public $currentCellCombIdx = false;
+    private $inputFile = 'data/result.in';
     private $outputFile = 'data/result.out';
+    private $tmpFile = 'data/result.tmp';
     public $totalSteps = 0;
-    private $currentAbsIdx = 0;
+    public $totalTime = 0;
+    private $startTime = 0;
+    public $modeContinue = false;
 
 
     public $rollbacksCnt = 0;
 
-    public function __construct($filename, $outFilename)
+    public function __construct($filename)
     {
-        $this->readFile($filename);
-        $this->availSliceCombinations = $this->getMultipliers($this->L, $this->H);
-        $this->lenAvailSlices = sizeof($this->availSliceCombinations);
-        $this->analyze();
+        $this->inputFile = self::DATA_DIR . DIRECTORY_SEPARATOR . $filename . '.' . self::EXT_IN;
+        $this->outputFile = self::DATA_DIR . DIRECTORY_SEPARATOR . $filename . '.' . self::EXT_OUT;
+        $this->tmpFile = self::DATA_DIR . DIRECTORY_SEPARATOR . $filename . '.' . self::EXT_TMP;
 
-        if ( !empty($outFilename) ) {
-            $this->outputFile = $outFilename;
+        $this->startTime = microtime(true);
+        $this->readFile($this->inputFile);
+        if ( file_exists($this->tmpFile) ) {
+            $this->modeContinue = true;
+            $this->restoreGrid();
+        } else {
+            $this->availSliceCombinations = $this->getMultipliers($this->L, $this->H);
+            $this->analyze();
+        }
+    }
+
+    public function restoreGrid() {
+        $dataAr = require $this->tmpFile;
+        $this->pathCombinationsAr = $dataAr ['pathCombinationsAr'];
+        $this->availSliceCombinations = $dataAr ['availSliceCombinations'];
+        $this->availSlices = $dataAr ['availSlices'];
+        $this->totalSteps = --$dataAr ['totalSteps']; // Last step not executed
+        $this->totalTime = $dataAr ['totalTime'];
+        $this->rollbacksCnt = $dataAr ['totalRollbacks'];
+        unset($dataAr);
+
+        foreach ( $this->pathCombinationsAr as $absIdx => $currentSliceIdx ) {
+            $currentCellCombIdx = $this->availSlices [$absIdx] [$this->currentSliceIdx];
+            $availSlice = $this->availSliceCombinations [$currentCellCombIdx];
+            list($x, $y) = $this->convertAbsRel($absIdx);
+
+            $this->currentCombination = [$y, $x, $y + $availSlice [1] - 1, $x + $availSlice [0] - 1];
+            $tmpAr = $this->getSlice($this->currentCombination);
+            if ( !is_array($tmpAr) ) {
+                die('Cannot continue, data is not valid.');
+            }
         }
     }
 
@@ -130,15 +167,12 @@ class Grid {
         return true;
     }
 
+    private function saveTmpFile() {
+        $this->saveProgress($this->tmpFile);
+    }
 
     public function saveFile() {
-        $resultAr = [
-            'completed' => $this->completeFlag,
-            'availSliceCombinations' => $this->availSliceCombinations,
-            'pathCombinationsAr' => $this->pathCombinationsAr,
-            'availSlices' => $this->availSlices,
-        ];
-        file_put_contents($this->outputFile, 'return ' . var_export($resultAr, true) .';');
+        $this->saveProgress($this->outputFile);
     }
 
     protected function getCurKoef() {
@@ -245,12 +279,28 @@ class Grid {
         return false;
     }
 
+    private function saveProgress($filename) {
+        $resultAr = [
+            'completed' => $this->completeFlag,
+            'totalTime' => ($this->totalTime + (float) sprintf('%01.3f', microtime(true) - $this->startTime)), // Can be not empty after restore progress
+            'totalSteps' => $this->totalSteps,
+            'totalRollbacks' => $this->rollbacksCnt,
+            'availSliceCombinations' => $this->availSliceCombinations,
+            'pathCombinationsAr' => $this->pathCombinationsAr,
+            'availSlices' => $this->availSlices,
+        ];
+        file_put_contents($filename, '<?php return ' . var_export($resultAr, true) .';');
+    }
+
     public function step(){
         if ( !$pos = $this->getFirstEmptySpace() ) {
             $this->completeFlag = true;
             return true;
         } else {
             ++$this->totalSteps;
+            if ( $this->totalSteps % self::BATCH_MOVES_SAVE == 0 ) {
+                $this->saveTmpFile();
+            }
             list ($x, $y) = $pos;
             $absIdx = $this->convertRelAbs($y, $x);
             $combFound = false;
@@ -295,11 +345,7 @@ class Grid {
             return $combFound;
         }
     }
-/*
-    public function isHoleExists() {
-        return ;
-    }
-*/
+
     public function rollback () {
         ++$this->rollbacksCnt;
         // Clear current
