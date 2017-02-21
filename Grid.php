@@ -83,10 +83,14 @@ class Grid {
         $this->rollbacksCnt = $dataAr ['totalRollbacks'];
         unset($dataAr);
 
-        foreach ( $this->pathCombinationsAr as $absIdx => $currentSliceIdx ) {
-            $currentCellCombIdx = $this->availSlices [$absIdx] [$this->currentSliceIdx];
+        foreach ( $this->pathCombinationsAr as $currentSliceIdx ) {
+            $pos = $this->getFirstEmptySpace();
+            var_dump($pos);
+            list ($x, $y) = $pos;
+            $absIdx = $this->convertRelAbs($y, $x);
+
+            $currentCellCombIdx = $this->availSlices [$absIdx] [$currentSliceIdx];
             $availSlice = $this->availSliceCombinations [$currentCellCombIdx];
-            list($x, $y) = $this->convertAbsRel($absIdx);
 
             $this->currentCombination = [$y, $x, $y + $availSlice [1] - 1, $x + $availSlice [0] - 1];
             $tmpAr = $this->getSlice($this->currentCombination);
@@ -94,6 +98,7 @@ class Grid {
                 die('Cannot continue, data is not valid.');
             }
         }
+        var_dump($this->fillAr); die();
     }
 
     private function readFile($filename) {
@@ -280,9 +285,12 @@ class Grid {
     }
 
     private function saveProgress($filename) {
+        $totalTime = (float) sprintf('%01.3f', $this->totalTime + microtime(true) - $this->startTime); // Can be not empty after restore progress
+        $speed = (int) (($this->totalSteps + $this->rollbacksCnt) / $totalTime);
         $resultAr = [
             'completed' => $this->completeFlag,
-            'totalTime' => ($this->totalTime + (float) sprintf('%01.3f', microtime(true) - $this->startTime)), // Can be not empty after restore progress
+            'speed' => $speed . ' op/s',
+            'totalTime' => $totalTime,
             'totalSteps' => $this->totalSteps,
             'totalRollbacks' => $this->rollbacksCnt,
             'availSliceCombinations' => $this->availSliceCombinations,
