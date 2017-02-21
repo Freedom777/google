@@ -5,7 +5,7 @@ session_start();
  */
 require 'Grid.php';
 
-$Grid = new Grid('medium');
+$Grid = new Grid('small');
 $_SESSION ['grid'] = serialize($Grid);
 ?>
 <!DOCTYPE html>
@@ -23,6 +23,18 @@ $_SESSION ['grid'] = serialize($Grid);
         .green {
             background-color: #0f0;
         }
+        .b-top {
+            border-top: 1px #000 solid;
+        }
+        .b-right {
+            border-right: 1px #000 solid;
+        }
+        .b-bottom {
+            border-bottom: 1px #000 solid;
+        }
+        .b-left {
+            border-left: 1px #000 solid;
+        }
         
     </style>
     
@@ -34,7 +46,26 @@ $_SESSION ['grid'] = serialize($Grid);
             <?php for ($y = 0, $cntY = $Grid->R; $y < $cntY; $y++ ): ?>
                 <tr>
                     <?php for ($x = 0, $cntJ = $Grid->C; $x < $cntJ; $x++ ): ?>
-                        <td id="<?= 'cell_' . $y . '_' . $x ?>"><?= empty($Grid->dataAr [$y] [$x]) ? '<i class="em em-tomato"></i>' : '<i class="em em-mushroom"></i>'; ?></td>
+                        <?php
+                        $bordersAr = [];
+                        if ( $Grid->wallsAr [$y] [$x] | 1 ) {
+                            // Top wall
+                            $bordersAr [] = 'b-top';
+                        }
+                        if ( $Grid->wallsAr [$y] [$x] | 2 ) {
+                            // Right wall
+                            $bordersAr [] = 'b-right';
+                        }
+                        if ( $Grid->wallsAr [$y] [$x] | 4 ) {
+                            // Bottom wall
+                            $bordersAr [] = 'b-bottom';
+                        }
+                        if ( $Grid->wallsAr [$y] [$x] | 8 ) {
+                            // Top wall
+                            $bordersAr [] = 'b-top';
+                        }
+                        ?>
+                        <td<?= !empty($bordersAr) ? ' class="' . implode(' ', $bordersAr) . '"' : ''; ?> id="<?= 'cell_' . $y . '_' . $x ?>"><?= empty($Grid->dataAr [$y] [$x]) ? '<i class="em em-tomato"></i>' : '<i class="em em-mushroom"></i>'; ?></td>
                     <?php endfor; ?>
                 </tr>
             <?php endfor; ?>

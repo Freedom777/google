@@ -25,6 +25,7 @@ class Grid {
 
     public $dataAr = [];
     public $fillAr = [];
+    public $wallsAr = [];
     public $total = [
         self::CELL_MUSHROOM => 0,
         self::CELL_TOMATO => 0,
@@ -83,12 +84,9 @@ class Grid {
         $this->rollbacksCnt = $dataAr ['totalRollbacks'];
         unset($dataAr);
 
-        foreach ( $this->pathCombinationsAr as $currentSliceIdx ) {
-            $pos = $this->getFirstEmptySpace();
-            var_dump($pos);
-            list ($x, $y) = $pos;
-            $absIdx = $this->convertRelAbs($y, $x);
 
+        foreach ( $this->pathCombinationsAr as $absIdx => $currentSliceIdx ) {
+            list ($x, $y) = $this->convertAbsRel($absIdx);
             $currentCellCombIdx = $this->availSlices [$absIdx] [$currentSliceIdx];
             $availSlice = $this->availSliceCombinations [$currentCellCombIdx];
 
@@ -98,7 +96,6 @@ class Grid {
                 die('Cannot continue, data is not valid.');
             }
         }
-        var_dump($this->fillAr); die();
     }
 
     private function readFile($filename) {
@@ -243,6 +240,24 @@ class Grid {
             // Fill matrix, if success with all conditions
             for ($y = $y1; $y <= $y2; $y++) {
                 for ($x = $x1; $x <= $x2; $x++) {
+                    $this->wallsAr [$y] [$x1] = 0;
+                    // Top wall
+                    if ( $y == $y1 ) {
+                        $this->wallsAr [$y] [$x] += 1;
+                    }
+                    // Right wall
+                    if ( $x == $x1 ) {
+                        $this->wallsAr [$y] [$x] += 2;
+                    }
+                    // Bottom wall
+                    if ( $y == $y2 ) {
+                        $this->wallsAr [$y] [$x] += 4;
+                    }
+                    // Left wall
+                    if ( $x == $x2 ) {
+                        $this->wallsAr [$y] [$x] += 8;
+                    }
+
                     $this->fillAr [$y] [$x] = 1;
                 }
             }

@@ -3,7 +3,7 @@
 $start = microtime(true);
 require 'Grid.php';
 
-$Grid = new Grid('medium');
+$Grid = new Grid('small');
 echo 'Grid ... ';
 if ($Grid->modeContinue) {
     echo 'Continue' . "\n";
